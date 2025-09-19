@@ -53,6 +53,29 @@ jobs:
     - name: Install dependencies
       run: npm install
       
+    - name: Validate and fix icon format
+      run: |
+        echo "Checking icon format..."
+        if [ -f "www/icon.svg" ]; then
+          echo "Found SVG icon, converting to PNG..."
+          # Install ImageMagick for SVG to PNG conversion
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          convert www/icon.svg -resize 512x512 www/icon.png
+          # Update config.xml to use PNG icon
+          sed -i 's/www\/icon\.svg/www\/icon.png/g' config.xml
+          echo "Icon converted to PNG format"
+        fi
+        
+        if [ -f "www/img/logo.png" ]; then
+          echo "Found PNG logo, updating config.xml..."
+          sed -i 's/www\/icon\.svg/www\/img\/logo.png/g' config.xml
+          sed -i 's/www\/icon\.png/www\/img\/logo.png/g' config.xml
+          echo "Config updated to use PNG logo"
+        fi
+        
+        echo "Final icon configuration:"
+        grep -E "(icon|splash)" config.xml || echo "No icon configuration found"
+        
     - name: Check Cordova requirements
       run: |
         export ANDROID_HOME=$ANDROID_SDK_ROOT
