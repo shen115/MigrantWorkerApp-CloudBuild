@@ -1,0 +1,172 @@
+name: Cordova 14 Android Fix
+
+on:
+  push:
+    branches: [ main, master, develop, fix-* ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Setup Java 11
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+        
+    - name: Install Android SDK for API 33
+      run: |
+        echo "Installing Android SDK..."
+        sudo apt-get update
+        sudo apt-get install -y wget unzip
+        
+        # Create SDK directory
+        mkdir -p $HOME/android-sdk
+        cd $HOME/android-sdk
+        
+        # Download command line tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        mkdir -p cmdline-tools
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        mv cmdline-tools latest
+        mkdir -p cmdline-tools/latest
+        mv latest/* cmdline-tools/latest/
+        rmdir latest
+        
+        # Set environment variables
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+        
+        # Accept licenses
+        yes | sdkmanager --licenses || true
+        
+        # Install required packages for Cordova 14
+        sdkmanager "platforms;android-33" "build-tools;33.0.0" "platform-tools" "tools"
+        
+        echo "Android SDK installation completed"
+        
+    - name: Install Cordova CLI
+      run: |
+        npm install -g cordova@12.0.0
+        cordova --version
+        
+    - name: Install project dependencies
+      run: |
+        echo "Installing npm dependencies..."
+        npm install
+        echo "Cordova version in project:"
+        npm list cordova
+        echo "Cordova-android version in project:"
+        npm list cordova-android
+        
+    - name: Pre-build cleanup
+      run: |
+        echo "Cleaning up any existing build artifacts..."
+        # Remove existing platforms and plugins to avoid conflicts
+        if [ -d "platforms" ]; then
+          echo "Removing existing platforms directory..."
+          rm -rf platforms
+        fi
+        if [ -d "plugins" ]; then
+          echo "Removing existing plugins directory..."
+          rm -rf plugins
+        fi
+        if [ -d "node_modules" ]; then
+          echo "Removing existing node_modules..."
+          rm -rf node_modules
+        fi
+        
+        # Reinstall dependencies
+        npm install
+        
+    - name: Validate project structure
+      run: |
+        echo "Validating project structure..."
+        if [ ! -f "config.xml" ]; then
+          echo "ERROR: config.xml not found!"
+          exit 1
+        fi
+        if [ ! -f "package.json" ]; then
+          echo "ERROR: package.json not found!"
+          exit 1
+        fi
+        if [ ! -d "www" ]; then
+          echo "ERROR: www directory not found!"
+          exit 1
+        fi
+        echo "Project structure validation passed"
+        
+    - name: Add Android platform with Cordova 14 compatibility
+      run: |
+        echo "Adding Android platform..."
+        export ANDROID_HOME=$HOME/android-sdk
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        
+        # Install specific cordova-android version compatible with Cordova 14
+        cordova platform add android@12.0.0 --verbose || {
+          echo "Failed to add android@12.0.0, trying latest version..."
+          cordova platform add android@latest --verbose
+        }
+        
+    - name: Build APK with enhanced error handling
+      run: |
+        echo "Building APK..."
+        export ANDROID_HOME=$HOME/android-sdk
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        
+        # Try release build first
+        cordova build android --release --verbose || {
+          echo "Release build failed, trying debug build..."
+          cordova build android --debug --verbose || {
+            echo "Both release and debug builds failed"
+            echo "Listing platform directory contents:"
+            ls -la platforms/android/ || echo "No platforms/android directory"
+            exit 1
+          }
+        }
+        
+    - name: Locate and verify APK
+      run: |
+        echo "Locating APK files..."
+        find platforms/android -name "*.apk" -type f -exec ls -la {} \; || echo "No APK files found"
+        
+        echo "Checking build outputs:"
+        if [ -d "platforms/android/app/build/outputs" ]; then
+          echo "Build outputs directory contents:"
+          find platforms/android/app/build/outputs -type f -name "*.apk" -exec ls -la {} \;
+        else
+          echo "No build outputs directory found"
+        fi
+        
+    - name: Upload APK artifacts
+      uses: actions/upload-artifact@v4
+      if: success()
+      with:
+        name: cordova-14-apk
+        path: platforms/android/app/build/outputs/apk/**/*.apk
+        retention-days: 30
+        
+    - name: Upload build logs on failure
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: cordova-14-build-logs
+        path: |
+          platforms/android/app/build/outputs/
+          platforms/android/build/
+        retention-days: 7
