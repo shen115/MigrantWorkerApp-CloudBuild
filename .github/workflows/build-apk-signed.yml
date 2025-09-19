@@ -1,0 +1,111 @@
+name: Build and Release Signed APK
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Install Cordova
+      run: |
+        npm install -g cordova
+        cordova --version
+        
+    - name: Install dependencies
+      run: |
+        npm ci
+        
+    - name: Setup Cordova platforms
+      run: |
+        cordova platform add android@latest
+        
+    - name: Build APK
+      run: |
+        cordova build android --release
+        
+    - name: Sign APK
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+      run: |
+        # Create keystore from secret
+        echo "${{ secrets.KEYSTORE_FILE }}" | base64 -d > release.keystore
+        
+        # Sign the APK
+        jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 \
+          -keystore release.keystore \
+          -storepass ${{ secrets.KEYSTORE_PASSWORD }} \
+          -keypass ${{ secrets.KEY_PASSWORD }} \
+          platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+          ${{ secrets.KEY_ALIAS }}
+          
+        # Align the APK
+        zipalign -v 4 \
+          platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+          platforms/android/app/build/outputs/apk/release/app-release-signed.apk
+          
+    - name: Upload Signed APK
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
+      uses: actions/upload-artifact@v4
+      with:
+        name: signed-apk
+        path: platforms/android/app/build/outputs/apk/release/app-release-signed.apk
+        retention-days: 90
+        
+    - name: Upload Unsigned APK
+      if: github.event_name != 'push' || (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master' && !startsWith(github.ref, 'refs/tags/v'))
+      uses: actions/upload-artifact@v4
+      with:
+        name: unsigned-apk
+        path: platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk
+        retention-days: 30
+        
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+        
+    - name: Upload Release Asset
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: platforms/android/app/build/outputs/apk/release/app-release-signed.apk
+        asset_name: MigrantWorkerApp-${{ github.ref_name }}.apk
+        asset_content_type: application/vnd.android.package-archive

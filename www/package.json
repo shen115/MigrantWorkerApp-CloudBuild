@@ -1,0 +1,17 @@
+﻿{
+  "name": "migrant-worker-web-app",
+  "version": "1.0.0",
+  "description": "鍐滄皯宸ョ數瀛愬洿鏍忕鐞嗙郴缁?- Web鐗堟湰",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server -p 8080 -c-1",
+    "build": "echo 'Web app ready for packaging'",
+    "package": "echo 'Use Android Studio or PWA2APK to create APK'"
+  },
+  "keywords": ["migrant", "worker", "fence", "attendance", "management"],
+  "author": "骞崇叅绁為┈寤哄伐闆嗗洟",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

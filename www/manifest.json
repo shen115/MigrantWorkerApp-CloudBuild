@@ -1,0 +1,22 @@
+{
+  "name": "农民工电子围栏管理系统",
+  "short_name": "农民工管理",
+  "description": "平煤神马建工集团农民工劳务电子围栏管理系统",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4CAF50",
+  "theme_color": "#4CAF50",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
