@@ -30,52 +30,66 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
-        api-level: 30
-        build-tools: 30.0.3
-      
+        api-level: 33
+        build-tools: 33.0.0
+        
     - name: Install Cordova
       run: |
-        npm install -g cordova
+        npm install -g cordova@latest
         cordova --version
         
     - name: Install dependencies
       run: |
-        npm ci
+        npm install
+        
+    - name: Check Cordova project
+      run: |
+        echo "Checking if Cordova project is properly configured..."
+        if [ ! -f "config.xml" ]; then
+          echo "Error: config.xml not found!"
+          exit 1
+        fi
+        if [ ! -f "package.json" ]; then
+          echo "Error: package.json not found!"
+          exit 1
+        fi
+        echo "Cordova project files found."
         
     - name: Setup Cordova platforms
       run: |
-        cordova platform add android@latest
+        echo "Adding Android platform..."
+        cordova platform add android@latest --verbose
         
-    - name: Build APK
+    - name: Build APK with detailed logging
       run: |
+        echo "Setting environment variables..."
         export ANDROID_HOME=$ANDROID_SDK_ROOT
+        export ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT
+        export PATH=$PATH:$ANDROID_SDK_ROOT/tools:$ANDROID_SDK_ROOT/platform-tools
+        
+        echo "Building APK..."
         cordova build android --release --verbose
-        
-    - name: Sign APK (Optional - if you have keystore)
-      if: false  # Set to true if you want to sign APK
-      run: |
-        # Example signing command (replace with your keystore details)
-        # jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore my-release-key.keystore platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk alias_name
-        
-    - name: Upload APK artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: apk-files
-        path: platforms/android/app/build/outputs/apk/release/*.apk
-        retention-days: 30
         
     - name: Check build output
       run: |
         echo "Checking for APK files..."
         find platforms/android -name "*.apk" -type f
-        ls -la platforms/android/app/build/outputs/apk/release/ || echo "Release directory not found"
+        echo "Checking build directories..."
         ls -la platforms/android/app/build/outputs/apk/ || echo "APK outputs directory not found"
         
-    - name: Upload all build outputs
+    - name: Upload APK artifacts
       uses: actions/upload-artifact@v4
-      if: always()
+      if: success()
       with:
-        name: build-outputs-all
+        name: apk-files
+        path: platforms/android/app/build/outputs/apk/**/*.apk
+        retention-days: 30
+        
+    - name: Upload build outputs on failure
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: build-outputs-failure
         path: platforms/android/app/build/outputs/
         retention-days: 7
         
@@ -89,14 +103,3 @@ jobs:
         release_name: Release v${{ github.run_number }}
         draft: false
         prerelease: false
-        
-    - name: Upload Release Asset
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk
-        asset_name: MigrantWorkerApp-v${{ github.run_number }}.apk
-        asset_content_type: application/vnd.android.package-archive
