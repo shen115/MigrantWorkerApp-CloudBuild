@@ -32,7 +32,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         
     - name: Setup Java 17
@@ -58,10 +58,18 @@ jobs:
         export ANDROID_HOME=$ANDROID_SDK_ROOT
         cordova requirements android
         
+    - name: Remove existing Android platform if exists
+      run: |
+        export ANDROID_HOME=$ANDROID_SDK_ROOT
+        if [ -d "platforms/android" ]; then
+          echo "Removing existing Android platform..."
+          cordova platform rm android || echo "Platform removal failed, continuing..."
+        fi
+        
     - name: Add Android platform
       run: |
         export ANDROID_HOME=$ANDROID_SDK_ROOT
-        cordova platform add android || echo "Platform may already exist"
+        cordova platform add android@latest
         
     - name: Prepare build
       run: |
