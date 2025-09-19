@@ -29,6 +29,9 @@ jobs:
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
+      with:
+        api-level: 30
+        build-tools: 30.0.3
       
     - name: Install Cordova
       run: |
@@ -45,7 +48,8 @@ jobs:
         
     - name: Build APK
       run: |
-        cordova build android --release
+        export ANDROID_HOME=$ANDROID_SDK_ROOT
+        cordova build android --release --verbose
         
     - name: Sign APK (Optional - if you have keystore)
       if: false  # Set to true if you want to sign APK
@@ -59,6 +63,21 @@ jobs:
         name: apk-files
         path: platforms/android/app/build/outputs/apk/release/*.apk
         retention-days: 30
+        
+    - name: Check build output
+      run: |
+        echo "Checking for APK files..."
+        find platforms/android -name "*.apk" -type f
+        ls -la platforms/android/app/build/outputs/apk/release/ || echo "Release directory not found"
+        ls -la platforms/android/app/build/outputs/apk/ || echo "APK outputs directory not found"
+        
+    - name: Upload all build outputs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-outputs-all
+        path: platforms/android/app/build/outputs/
+        retention-days: 7
         
     - name: Create Release
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'

@@ -1,0 +1,65 @@
+name: Build APK Fixed
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Install Cordova
+      run: npm install -g cordova
+      
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Add Android platform
+      run: cordova platform add android
+      
+    - name: Build APK
+      run: |
+        cordova build android --release --verbose
+        
+    - name: Check build output
+      run: |
+        echo "Checking for APK files..."
+        find platforms/android -name "*.apk" -type f
+        ls -la platforms/android/app/build/outputs/apk/release/ || echo "Release directory not found"
+        
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release-apk
+        path: platforms/android/app/build/outputs/apk/release/*.apk
+        
+    - name: Upload build outputs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-outputs
+        path: |
+          platforms/android/app/build/outputs/
+          !platforms/android/app/build/outputs/**/debug/
+        retention-days: 7

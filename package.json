@@ -2,15 +2,22 @@
   "name": "com.pmsm.migrantworker",
   "displayName": "农民工电子围栏管理系统",
   "version": "1.0.0",
-  "description": "A sample Apache Cordova application that responds to the deviceready event.",
+  "description": "平煤神马建工集团农民工劳务电子围栏管理系统",
   "main": "index.js",
   "scripts": {
+    "build": "cordova build android --release",
+    "build-debug": "cordova build android",
+    "prepare": "cordova prepare android",
+    "clean": "cordova clean android",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
-    "ecosystem:cordova"
+    "ecosystem:cordova",
+    "android",
+    "migrant-worker",
+    "fence-management"
   ],
-  "author": "Apache Cordova Team",
+  "author": "平煤神马建工集团",
   "license": "Apache-2.0",
   "devDependencies": {
     "cordova-android": "^14.0.1",
