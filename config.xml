@@ -41,8 +41,8 @@
         <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
         <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     </config-file>
-    <icon src="www/icon.svg" />
-    <splash src="www/icon.svg" />
+    <icon src="www/img/logo.png" />
+    <splash src="www/img/logo.png" />
     <plugin name="cordova-plugin-device" spec="^2.0.3" />
     <plugin name="cordova-plugin-network-information" spec="^3.0.0" />
     <plugin name="cordova-plugin-battery-status" spec="^2.0.3" />
