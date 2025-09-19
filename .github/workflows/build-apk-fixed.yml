@@ -2,9 +2,10 @@ name: Build APK Fixed
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -20,46 +21,82 @@ jobs:
         node-version: '18'
         cache: 'npm'
         
-    - name: Setup Java
+    - name: Setup Java 17
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '11'
+        java-version: '17'
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
     - name: Install Cordova
-      run: npm install -g cordova
-      
-    - name: Install dependencies
-      run: npm install
-      
-    - name: Add Android platform
-      run: cordova platform add android
-      
-    - name: Build APK
       run: |
-        cordova build android --release --verbose
+        npm install -g cordova@latest
+        cordova --version
+        
+    - name: Install dependencies
+      run: |
+        npm install
+        
+    - name: Check Cordova project
+      run: |
+        echo "Checking if Cordova project is properly configured..."
+        if [ ! -f "config.xml" ]; then
+          echo "Error: config.xml not found!"
+          exit 1
+        fi
+        if [ ! -f "package.json" ]; then
+          echo "Error: package.json not found!"
+          exit 1
+        fi
+        echo "Cordova project files found."
+        
+    - name: Setup Cordova platforms
+      run: |
+        echo "Adding Android platform..."
+        cordova platform add android@latest --verbose
+        
+    - name: Build APK with detailed logging
+      run: |
+        echo "Setting environment variables..."
+        export ANDROID_HOME=$ANDROID_SDK_ROOT
+        export ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT
+        export PATH=$PATH:$ANDROID_SDK_ROOT/tools:$ANDROID_SDK_ROOT/platform-tools
+        
+        echo "Building APK..."
+        cordova build android --release --verbose --debug
         
     - name: Check build output
       run: |
         echo "Checking for APK files..."
         find platforms/android -name "*.apk" -type f
-        ls -la platforms/android/app/build/outputs/apk/release/ || echo "Release directory not found"
+        echo "Checking build directories..."
+        ls -la platforms/android/app/build/outputs/apk/ || echo "APK outputs directory not found"
         
-    - name: Upload APK artifact
+    - name: Upload APK artifacts
       uses: actions/upload-artifact@v4
+      if: success()
       with:
-        name: app-release-apk
-        path: platforms/android/app/build/outputs/apk/release/*.apk
+        name: apk-files
+        path: platforms/android/app/build/outputs/apk/**/*.apk
+        retention-days: 30
         
-    - name: Upload build outputs
+    - name: Upload build outputs on failure
       uses: actions/upload-artifact@v4
-      if: always()
+      if: failure()
       with:
-        name: build-outputs
-        path: |
-          platforms/android/app/build/outputs/
-          !platforms/android/app/build/outputs/**/debug/
+        name: build-outputs-failure
+        path: platforms/android/app/build/outputs/
         retention-days: 7
+        
+    - name: Create Release
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        draft: false
+        prerelease: false
