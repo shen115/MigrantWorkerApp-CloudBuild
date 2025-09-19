@@ -1,26 +1,74 @@
 @echo off
-echo 🚀 立即云端编译APK - 无需安装Git
+echo ===============================
+echo 🚀 PUSH TO GITHUB & START CLOUD BUILD
+echo ===============================
+
+REM Check current status
+git status
+
+REM Add any remaining files
+git add .
+
+REM Create final commit if needed
+git diff-index --quiet HEAD
+if %errorlevel% neq 0 (
+    git commit -m "Final commit before GitHub push - Ready for cloud build"
+    echo ✅ New commit created
+) else (
+    echo No changes to commit
+)
+
 echo.
-echo 📋 步骤1：下载并安装GitHub Desktop
-echo    https://desktop.github.com/
+echo 🌐 Checking GitHub connectivity...
+ping github.com -n 1 >nul 2>&1
+if %errorlevel% equ 0 (
+    echo ✅ GitHub is reachable
+) else (
+    echo ❌ Cannot reach GitHub - check internet connection
+    pause
+    exit /b 1
+)
+
 echo.
-echo 📋 步骤2：创建新仓库
-echo    名称: MigrantWorkerApp-CloudBuild
-echo    描述: 农民工劳务电子围栏管理系统 - 移动端应用
+echo 📝 Repository Setup:
+echo Create GitHub repository: MigrantWorkerApp-CloudBuild
+echo Make it PUBLIC (required for free GitHub Actions)
+echo Do NOT initialize with README
+echo Copy the repository URL
 echo.
-echo 📋 步骤3：添加现有代码
-echo    选择此文件夹: %cd%
+echo Opening GitHub to create repository...
+start https://github.com/new
+
 echo.
-echo 📋 步骤4：提交代码
-echo    提交信息: "Initial commit - MigrantWorkerApp"
+echo Press any key when you have created the GitHub repository and copied the URL...
+pause >nul
+
 echo.
-echo 📋 步骤5：推送到GitHub
-echo    点击"Publish repository"
+echo Please paste your GitHub repository URL:
+set /p repo_url=Repository URL: 
+
 echo.
-echo ⏱️  预计时间: 5分钟完成同步
-echo 🎯 结果: GitHub Actions将自动开始编译APK
-echo 📱 APK将在10分钟后在GitHub Releases中可下载
+echo 🔗 Adding remote origin...
+git remote add origin %repo_url%
+if %errorlevel% neq 0 (
+    git remote set-url origin %repo_url%
+)
+
 echo.
-echo 💡 提示: 完成后在此运行 check_build_status.bat
+echo 📤 Pushing to GitHub...
+git push -u origin main
+if %errorlevel% neq 0 (
+    git push -u origin master
+)
+
 echo.
+echo 🎉 SUCCESS! Code pushed to GitHub!
+echo 🚀 Cloud build has started automatically!
+echo.
+echo 🔍 Monitor your build: %repo_url%/actions
+echo 📧 You will receive email notification when APK is ready!
+echo ⏰ APK will be ready in 10-15 minutes!
+echo.
+start %repo_url%/actions
+start %repo_url%/releases
 pause
